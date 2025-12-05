@@ -3,7 +3,8 @@ import dotenv from "dotenv";
 import chalk from "chalk";
 import figlet from "figlet";
 import { Command } from "commander";
-import {login, whoami,logout} from "./commands/auth/login.js";
+import {login, whoami, logout} from "./commands/auth/login.js";
+import { wakeUp } from "./commands/ai/wakeUp.js";
 dotenv.config();
 
 async function main() {
@@ -17,18 +18,26 @@ async function main() {
   );
   console.log(chalk.red("A CLI based AI Tool \n"));
   
-  const program = new Command("orbitals");
+  const program = new Command();
   program
+    .name("orbitals")
     .version("0.0.1")
-    .description("CLI HUB - A CLI based AI Tool")
-    .addCommand(login)
-    .addCommand(logout)
-    .addCommand(whoami)
-    .action(() => {
-      program.help();
-    });
+    .description("CLI HUB - A CLI based AI Tool");
   
-  program.parse();
+  // Add subcommands
+  program.addCommand(login);
+  program.addCommand(logout);
+  program.addCommand(whoami);
+  program.addCommand(wakeUp);
+  
+  // Check if no arguments provided
+  if (process.argv.length <= 2) {
+    program.help();
+    return;
+  }
+  
+  // Parse arguments
+  program.parse(process.argv);
 }
 
 main().catch((err) => {

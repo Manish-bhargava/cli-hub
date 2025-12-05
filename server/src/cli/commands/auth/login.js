@@ -22,11 +22,6 @@ const CONFIG_DIR = path.join(os.homedir(), ".better-auth");
 export const TOKEN_FILE = path.join(CONFIG_DIR, "token.json");
 
 export async function loginAction(opts) {
-    const options = z.object({
-        serverUrl: z.string().optional(),
-        clientId: z.string().optional()
-    });
-    
     const serverUrl = opts.serverUrl || URL;
     const clientId = opts.clientId || CLIENT_ID;
     
@@ -108,9 +103,14 @@ export async function loginAction(opts) {
             clientId,
             interval
         );
+
+        console.log(chalk.gray("DEBUG - tokenData from pollForToken:"), JSON.stringify(tokenData, null, 2));
         
         if(tokenData?.access_token){
-            const saved = await storeToken(tokenData.access_token);
+            console.log(chalk.gray("DEBUG - Storing token data..."));
+            
+            // Pass the entire tokenData object, not just access_token
+            const saved = await storeToken(tokenData);
             if(!saved){
                 console.log(
                     chalk.yellow("\nWarning: Could not save authentication token")
@@ -125,6 +125,10 @@ export async function loginAction(opts) {
             console.log(
                 chalk.gray("You can now use AI Commands without logging in again.\n")
             );
+        } else {
+            console.log(chalk.red("ERROR: No access_token found in tokenData"));
+            console.log(chalk.red("Available properties:"), tokenData ? Object.keys(tokenData).join(", ") : "tokenData is null");
+            process.exit(1);
         }
     }
     catch(error) {
@@ -160,12 +164,23 @@ async function pollForToken(authClient, deviceCode, clientId, initialInterval){
                     },
                 });
                 
-                if(data?.access_token){
+                if(data){
                     spinner.stop();
-                    resolve(data);
-                    return;
+                    console.log(chalk.gray("DEBUG - Full data received from authClient.device.token:"), JSON.stringify(data, null, 2));
+                    
+                    // Check for access_token in various possible locations
+                    if(data.access_token || data.accessToken || data.token || data.session_token){
+                        resolve(data);
+                        return;
+                    } else {
+                        console.log(chalk.yellow("WARNING: Token data doesn't contain access_token property"));
+                        console.log(chalk.yellow("Available properties:"), Object.keys(data).join(", "));
+                        resolve(data); // Still resolve so we can see what we got
+                        return;
+                    }
                 }
                 else if(error){
+                    console.log(chalk.gray("DEBUG - Error from authClient.device.token:"), JSON.stringify(error, null, 2));
                     switch (error.error) {
                         case "authorization_pending":
                             // Continue polling
@@ -209,71 +224,90 @@ export const login = new Command("login")
     .option("--server-url <url>", "The Better auth server url", URL)
     .option("--client-id <id>", "The OAuth client ID", CLIENT_ID)
     .action(loginAction);
+
 export async function logoutAction() {
     intro(chalk.bold(" Auth Cli Logout"));
     
-const token = await getStoredToken();
+    const token = await getStoredToken();
     
-if(!token){
-    console.log(chalk.yellow("you are not logged in "));
-    process.exit(0);
-
-}
- const shouldLogout = await confirm({
-    message: "Are you sure you want to logout?",
-    initialValue: false
-});
-
-if(isCancel(shouldLogout) || !shouldLogout){
-    cancel("Logout Cancelled");
-    process.exit(0);
-}
-const cleared=await clearStoredToken();
-if(cleared){
-    outro(chalk.green("Logout successful"));
-}
-else{
-    outro(chalk.red("Logout failed"));
-}
-
-
-}
- export async function whoamiAction(opts) {
-    const token=await requireAuth();
-    if(!token?.access_token){
-        console.log("no acess token foind plese logon again");
-        process.exit(1);
-    
+    if(!token){
+        console.log(chalk.yellow("You are not logged in"));
+        process.exit(0);
     }
-    const user =await prisma.user.findFirst({
-        where:{
-            sessions:{
-                some:{
-                    token:token.access_token
-                }
-            
-            }
-        },
-        select:{
-            id:true,
-            name:true,
-            email:true,
-            image:true,
-
-        }
     
+    const shouldLogout = await confirm({
+        message: "Are you sure you want to logout?",
+        initialValue: false
+    });
+    
+    if(isCancel(shouldLogout) || !shouldLogout){
+        cancel("Logout Cancelled");
+        process.exit(0);
+    }
+    
+    const cleared = await clearStoredToken();
+    if(cleared){
+        outro(chalk.green("Logout successful"));
+    }
+    else{
+        outro(chalk.red("Logout failed"));
+    }
+}
+
+export async function whoamiAction(opts) {
+    try {
+        const token = await getStoredToken();
         
-})
-   console.log(chalk.bold.greenBright(`\n User:${user.name}
-    Email: ${user.email}
-    Id: ${user.id}
-    `))
- }
- export const logout=new Command("logout")
-    .description("Logout and cleared Stored Crede")
+        // Check for accessToken (not access_token) because that's what storeToken() saves
+        if(!token?.accessToken){
+            console.log(chalk.red("No access token found, please login again"));
+            process.exit(1);
+        }
+        
+        // Check if token is expired
+        const expired = await isTokenExpired();
+        if (expired) {
+            console.log(chalk.red("Your session has expired. Please login again"));
+            console.log(chalk.yellow("Run: orbitals login"));
+            process.exit(1);
+        }
+        
+        // Use accessToken (not access_token) in the query
+        const user = await prisma.user.findFirst({
+            where: {
+                sessions: {
+                    some: {
+                        token: token.accessToken
+                    }
+                }
+            },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+            }
+        });
+        
+        if (!user) {
+            console.log(chalk.red("User not found"));
+            process.exit(1);
+        }
+        
+        console.log(chalk.bold.greenBright(`\n User: ${user.name}
+ Email: ${user.email}
+ Id: ${user.id}`));
+    } catch (error) {
+        console.log(chalk.red("Error fetching user info:"), error.message);
+        process.exit(1);
+    }
+}
+
+export const logout = new Command("logout")
+    .description("Logout and clear stored credentials")
     .action(logoutAction);
 
-export const whoami=new Command("whoami")
-     .description("Show current authenticated user")
-     .option("--server-url <url>", "The Better auth server url", URL)
-     .action(whoamiAction);
+export const whoami = new Command("whoami")
+    .description("Show current authenticated user")
+    .option("--server-url <url>", "The Better auth server url", URL)
+    .action(whoamiAction);

@@ -1,6 +1,6 @@
 import {google} from "@ai-sdk/google"
-import {MessageConversionError, streamText} from "ai";
-import {config} from "../config/google.config.js";
+import {convertToModelMessages, MessageConversionError, streamText} from "ai";
+import {config} from "../../config/google.config.js";
 import chalk from "chalk"
 
 export class AIService {
@@ -15,16 +15,15 @@ export class AIService {
 
     // @param {Array} Message
     // @param {Function} onChunk
-    async sendMessage(message, onChunk, tools = undefined, onToolCall = null) {
+    async sendMessage(messages, onChunk, tools = undefined, onToolCall = null) {
         try {
             const streamConfig = {
                 model: this.model,
-                messages: message,
-                tools: tools,
-                onToolCall: onToolCall,
+                messages: messages,
+                
             }
             
-            const result = await streamText(streamConfig);
+            const result = streamText(streamConfig);
             let fullResponse = "";
             
             for await (const chunk of result.textStream) {
