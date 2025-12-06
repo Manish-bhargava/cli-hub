@@ -152,7 +152,7 @@
 
 
 import { google } from "@ai-sdk/google"
-import { streamText, generateText } from "ai";
+import { streamText, generateText, generateObject } from "ai";
 import { config } from "../../config/google.config.js";
 import chalk from "chalk"
 
@@ -275,4 +275,23 @@ export class AIService {
         }, tools);
         return result.content;
     }
+
+
+
+    async generateStructured(schema,prompt){
+        try{
+            const result=await generateObject({
+                model:this.model,
+                schema:schema,
+                prompt:prompt
+            })
+            return result.object;
+        }
+        catch(e){
+            console.log(chalk.red("AI Structured Generation Error:"), e.message);
+            throw error;
+        }
+    }
 }
+
+

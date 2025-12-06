@@ -254,6 +254,9 @@
 //     }
 // }
 
+
+
+
 import chalk from "chalk";
 import { Command } from "commander";
 import boxen from "boxen";
@@ -267,6 +270,7 @@ import { ChatService } from "../../../service/chat-service.js";
 import { getStoredToken } from "../../../lib/token.js";
 import prisma from "../../../lib/db.js";
 
+// Configure marked for terminal output with colors
 marked.use(
     markedTerminal({
         code: chalk.cyan,
@@ -319,6 +323,36 @@ async function getUserFromToken() {
     return user;
 }
 
+// Test markdown rendering
+function testMarkdownRendering() {
+    console.log(chalk.gray("\n=== Testing Markdown Rendering ==="));
+    
+    const testMarkdown = `
+# Heading 1
+## Heading 2
+
+**Bold text** and *italic text*
+
+\`inline code\`
+
+\`\`\`javascript
+// Code block
+console.log("Hello");
+\`\`\`
+
+- List item 1
+- List item 2
+
+> Blockquote
+
+[Link](https://example.com)
+`;
+    
+    const parsed = marked.parse(testMarkdown);
+    console.log(parsed);
+    console.log(chalk.gray("=== End Test ===\n"));
+}
+
 async function initConversation(userId, conversationId = null, mode = "chat"){
     const spinner = yoctoSpinner({text: "Loading conversation..."}).start();
     const conversation = await chatService.getOrConversation(userId, conversationId, mode);
@@ -332,6 +366,9 @@ async function initConversation(userId, conversationId = null, mode = "chat"){
     const conversationTitle = conversation.title || "Untitled Conversation";
     
     spinner.success("Conversation loaded");
+
+    // Test markdown rendering
+    testMarkdownRendering();
 
     const conversationInfo = boxen(
         `${chalk.bold("Conversation")}: ${conversationTitle}\n${chalk.gray("ID: " + conversation.id)}\n${chalk.gray("Mode: " + conversation.mode)}`, {
@@ -357,6 +394,7 @@ async function initConversation(userId, conversationId = null, mode = "chat"){
 function displayMessages(messages){
     messages.forEach((msg) => {
         if(msg.role === "user"){
+            // User messages - plain white text
             const userBox = boxen(chalk.white(msg.content), {
                 padding: 1,
                 margin: {
@@ -370,8 +408,9 @@ function displayMessages(messages){
             });
             console.log(userBox);
         } else {
+            // AI responses - parse markdown with colors
             const renderedContent = marked.parse(msg.content);
-            const assistantBox = boxen(chalk.white(renderedContent), {
+            const assistantBox = boxen(renderedContent, { // NO chalk.white() here!
                 padding: 1,
                 margin: {
                     left: 2,
@@ -416,6 +455,7 @@ async function getAIResponse(conversationId){
         });
         
         console.log("\n");
+        // Parse markdown - this will output with colors
         const renderedMarkdown = marked.parse(fullResponse);
         console.log(renderedMarkdown);
         console.log(chalk.gray("-".repeat(60)));
@@ -434,6 +474,7 @@ async function updateConversationTitle(conversationId, userInput, messageCount) 
         await chatService.updateConversationTitle(conversationId, title);
     }
 }
+
 async function chatLoop(conversation){
     const helpBox = boxen(
         `${chalk.gray('. Type your message and press Enter')}\n${chalk.gray('. Markdown formatting is supported in response')}\n${chalk.gray('. Type exit to end conversation')}\n${chalk.gray('. Press Ctrl+C to quit anytime')}`, {
@@ -451,7 +492,6 @@ async function chatLoop(conversation){
         const userInput = await text({
             message: chalk.blue("Your message"),
             placeholder: "Type your message"
-            // Remove the validate function for now
         });
         
         if(isCancel(userInput)){
@@ -488,6 +528,18 @@ async function chatLoop(conversation){
             break;
         }
         
+        // Display user message
+        const userBox = boxen(chalk.white(trimmedInput), {
+            padding: 1,
+            margin: {left: 2, bottom: 1},
+            borderStyle: "round",
+            borderColor: "blue",
+            title: "You",
+            titleAlignment: "left"
+        });
+        console.log(userBox);
+        
+        // Save and get AI response
         await saveMessage(conversation.id, "user", trimmedInput);
         const messages = await chatService.getMessages(conversation.id);
         const aiResponse = await getAIResponse(conversation.id);
