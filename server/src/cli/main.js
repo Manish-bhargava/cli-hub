@@ -5,7 +5,9 @@ import figlet from "figlet";
 import { Command } from "commander";
 import {login, whoami, logout} from "./commands/auth/login.js";
 import { wakeUp } from "./commands/ai/wakeUp.js";
-dotenv.config();
+import { config } from "./commands/auth/config.js";
+import { debug } from "./commands/ai/debug.js";
+dotenv.config({ quiet: true });
 
 async function main() {
   console.log(
@@ -29,7 +31,8 @@ async function main() {
   program.addCommand(logout);
   program.addCommand(whoami);
   program.addCommand(wakeUp);
-  
+  program.addCommand(config);
+  program.addCommand(debug);
   // Check if no arguments provided
   if (process.argv.length <= 2) {
     program.help();

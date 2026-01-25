@@ -12,11 +12,13 @@ export const auth = betterAuth({
         "http://localhost:3000", // Frontend (allow this!)
         "http://localhost:3005"  // Backend (optional, but good to keep)
     ],
-    plugins:[deviceAuthorization({
-        expiresIn:"30m",
-        interval:"5s"
-    }
-    )],
+plugins: [
+    deviceAuthorization({
+        verificationUri: "http://localhost:3005/approve", // Point to the backend route we just created
+        expiresIn: "30m",
+        interval: "5s"
+    })
+],
     
     socialProviders:{
         github:{
