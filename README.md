@@ -1,6 +1,6 @@
 # CLI-HUB 🚀
 
-[cite_start]**CLI-HUB** is an AI-powered terminal productivity tool designed to transform your command-line interface into an intelligent workspace[cite: 4, 35]. [cite_start]By leveraging **Gemini AI**, it allows developers to execute complex operations using natural language, search the web, and manage files without leaving the terminal[cite: 37, 38].
+**CLI-HUB** is an AI-powered terminal productivity tool designed to transform your command-line interface into an intelligent workspace. By leveraging **Gemini AI**, it allows developers to execute complex operations using natural language, search the web, and manage files without leaving the terminal.
 
 ---
 
